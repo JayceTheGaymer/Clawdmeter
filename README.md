@@ -1,3 +1,40 @@
+> [!IMPORTANT]
+> ## This is a fork — added for Clawd-mirroring support
+>
+> The Clawdmeter — the device, this firmware, the board ports, the LVGL
+> work, the BLE service, the animation engine — is
+> **[Hermann Björgvin's](https://github.com/HermannBjorgvin/Clawdmeter)**
+> project. Everything below this box is his README, unchanged.
+>
+> **This fork adds one thing:** a field in the BLE payload (`a`) so a host
+> app can tell the device which animation to play, instead of the device
+> only picking one from how fast your quota is burning. Send nothing, and
+> it behaves exactly like upstream.
+>
+> The idea, and the original working implementation, are
+> **[juppeee's](https://github.com/juppeee)** — from his
+> **[`csb-buddy` branch](https://github.com/juppeee/Clawdmeter/tree/csb-buddy)**,
+> built for his **[Claude Session Browser](https://github.com/juppeee/claude-session-browser)**
+> on Windows. This fork carries that same idea forward for
+> **[the Linux port of Claude Session Browser](https://github.com/JayceTheGaymer/claude-session-browser)**.
+> The mechanism is his; the code underneath it is rewritten from scratch
+> against Hermann's *current* firmware, since his animation engine and
+> splash catalog have both changed substantially since juppeee's branch
+> was cut — none of his implementation carried over directly, only the
+> design it follows.
+>
+> **You only need this build if you want the device to react to what
+> Claude Code is actually doing**, not just how hard your quota is
+> burning. For the usage meter and battery alone, Hermann's stock
+> firmware already works fine with either Session Browser — it just
+> ignores the extra field.
+>
+> Flashing is otherwise identical to upstream — see below.
+>
+> Anything broken here is my doing, not Hermann's or juppeee's — open an
+> issue [on this fork](https://github.com/JayceTheGaymer/Clawdmeter/issues),
+> not on either of their trackers.
+
 # Clawdmeter
 
 <img src="assets/readme/waving.gif" width="120" align="right" alt="">
