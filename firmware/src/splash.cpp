@@ -55,6 +55,12 @@ static int8_t  group_lists[GROUP_COUNT][GROUP_MAX];
 static uint8_t group_size[GROUP_COUNT] = {0};
 static uint8_t group_rotation[GROUP_COUNT] = {0};
 
+// Host-driven animation (see splash_set_anim). -1 = no override, the
+// usage-rate groups decide. forced_req remembers what the host last asked
+// for so a poll repeating the same name is a no-op rather than a re-render.
+static int  forced_idx = -1;
+static char forced_req[24] = "";
+
 static const char* GROUP_NAMES[GROUP_COUNT][GROUP_MAX] = {
     // Group 0 — idle / sleepy (calm, investigative). Magnifier first: it's
     // the boot pick, and lurking-first would boot to a near-empty screen.
@@ -837,8 +843,54 @@ void splash_next(void) {
     Serial.printf("splash: -> %s\n", a->name);
 }
 
+// Switch to splash_anims[idx], reset its animation state, and draw its first
+// frame right away -- same tail sequence splash_next() and
+// splash_pick_for_current_rate() already use for a manual/forced switch.
+static void show_anim_now(int idx) {
+    cur_anim = (uint16_t)idx;
+    cur_frame = 0;
+    frame_started_ms = millis();
+    last_pick_ms = frame_started_ms;
+    const splash_anim_def_t *a = &splash_anims[cur_anim];
+    anim_reset(a);
+    render_frame(compose_stage(a, 0), a->palette);
+#if SPLASH_DIRECT_DRAW
+    // Same reasoning as splash_show(): a host-forced switch can land between
+    // LVGL flush passes on the direct-draw path, so force a clean full
+    // repaint on the next render rather than trust the changed-cells diff.
+    force_full = true;
+#endif
+}
+
+void splash_set_anim(const char *name) {
+    if (SPLASH_ANIM_COUNT == 0) return;
+    if (!name) name = "";
+    if (strncmp(name, forced_req, sizeof(forced_req)) == 0) return;  // unchanged
+    strlcpy(forced_req, name, sizeof(forced_req));
+
+    if (name[0] == '\0') {                 // host released control
+        forced_idx = -1;
+        Serial.println("splash: host released, back to usage-rate groups");
+        if (active) splash_pick_for_current_rate();
+        return;
+    }
+    for (int i = 0; i < SPLASH_ANIM_COUNT; i++) {
+        if (strcmp(splash_anims[i].name, name) == 0) {
+            forced_idx = i;
+            Serial.printf("splash: host -> %s\n", name);
+            if (active) show_anim_now(i);
+            return;
+        }
+    }
+    // Unknown name (host newer than firmware): drop back to the device's own
+    // choice rather than blanking the screen or getting stuck.
+    forced_idx = -1;
+    Serial.printf("splash: host asked for unknown anim '%s', ignoring\n", name);
+}
+
 void splash_pick_for_current_rate(void) {
     if (SPLASH_ANIM_COUNT == 0) return;
+    if (forced_idx >= 0) { show_anim_now(forced_idx); return; }
     int g = usage_rate_group();
     if (g < 0 || g >= GROUP_COUNT) g = 0;
     if (group_size[g] == 0) return;
@@ -848,13 +900,7 @@ void splash_pick_for_current_rate(void) {
     int8_t idx = group_lists[g][slot];
     if (idx < 0) return;
 
-    cur_anim = (uint16_t)idx;
-    cur_frame = 0;
-    frame_started_ms = millis();
-    last_pick_ms = frame_started_ms;
-    const splash_anim_def_t *a = &splash_anims[cur_anim];
-    anim_reset(a);
-    render_frame(compose_stage(a, 0), a->palette);
+    show_anim_now(idx);
 }
 
 bool splash_is_active(void) { return active; }

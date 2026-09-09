@@ -117,6 +117,7 @@ static bool parse_json(const char* json, UsageData* out) {
     out->time_pct = doc["tp"] | 0;
     out->period_days = doc["pd"] | 30;
     strlcpy(out->reset_date, doc["rd"] | "", sizeof(out->reset_date));
+    strlcpy(out->anim, doc["a"] | "", sizeof(out->anim));
     out->clock_epoch = doc["t"] | 0L;
     out->clock_fmt = doc["tf"] | 24;
     out->ok = doc["ok"] | false;
@@ -373,6 +374,15 @@ void loop() {
 
     if (ble_has_data()) {
         if (parse_json(ble_get_data(), &usage)) {
+            // Host-driven animation. Sent every poll regardless of whether
+            // splash is currently showing -- splash_set_anim() just updates
+            // the override state either way, so it's already in effect the
+            // moment splash next becomes active (splash_show() calls
+            // splash_pick_for_current_rate(), which checks the override
+            // before falling back to the usage-rate groups). "" means the
+            // host has no opinion right now and hands control back.
+            splash_set_anim(usage.anim);
+
             int g_before = usage_rate_group();
             bool session_reset = usage_rate_sample(usage.session_pct);
             int g_after = usage_rate_group();
